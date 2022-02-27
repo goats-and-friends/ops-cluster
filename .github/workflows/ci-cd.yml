@@ -1,0 +1,58 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+jobs:
+
+  lint:
+    name: Lint ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment:
+        - staging
+        - production
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: environments/${{ matrix.environment }}
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_version: 1.1.6
+
+    - name: Terraform Format
+      run: terraform fmt -check
+
+  deploy-staging:
+    name: Deploy staging
+    needs: lint
+    uses: goats-and-friends/ops-core/.github/workflows/deploy-terraform.yml@main
+    with:
+      environment: staging
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+  deploy-production:
+    name: Deploy production
+    needs: deploy-staging
+    uses: goats-and-friends/ops-core/.github/workflows/deploy-terraform.yml@main
+    with:
+      environment: production
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
